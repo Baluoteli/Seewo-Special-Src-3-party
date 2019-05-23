@@ -6,23 +6,22 @@
 #include "SEIDlg.h"
 #include "AGScreenCaptureDlg.h"
 
-// CVideoDlg 对话框
+// CVideoDlg 
 
 class CVideoDlg : public CDialogEx
 {
 	DECLARE_DYNAMIC(CVideoDlg)
 
 public:
-	CVideoDlg(CWnd* pParent = NULL);   // 标准构造函数
+	CVideoDlg(CWnd* pParent = NULL);
 	virtual ~CVideoDlg();
 
-// 对话框数据
 	enum { IDD = IDD_VIDEO_DIALOG };
 
 	enum { 
-		SCREEN_VIDEO1 = 0,	// 单屏
-		SCREEN_VIDEO4,		// 4分屏
-		SCREEN_VIDEOMULTI,	// 1大4小
+		SCREEN_VIDEO1 = 0,	// 
+		SCREEN_VIDEO4,		// 
+		SCREEN_VIDEOMULTI,	// 
 	};
 
 	//HWND GetRemoteVideoWnd(int nIndex);
@@ -34,7 +33,7 @@ public:
 	void ShowControlButton(BOOL bShow = TRUE);
 
 protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
+	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV
 	virtual BOOL OnInitDialog();
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 
@@ -45,6 +44,7 @@ protected:
 	afx_msg LRESULT OnNcHitTest(CPoint point);
 	afx_msg LRESULT OnShowModeChanged(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnShowBig(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnWindowShareStart(WPARAM wParam, LPARAM lParam);
 
 	afx_msg void OnBnClickedBtnmin();
 	afx_msg void OnBnClickedBtnclose();
@@ -66,7 +66,6 @@ protected:
 	afx_msg void OnBnClickedBtnsetup();
 	afx_msg void OnBnClickedBtSEIPush();
 
-	// 用于处理引擎的回调消息
 	afx_msg LRESULT OnEIDJoinChannelSuccess(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnEIDReJoinChannelSuccess(WPARAM wParam, LPARAM lParam);
 	
@@ -77,6 +76,7 @@ protected:
 	afx_msg LRESULT OnEIDConnectionLost(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnEIDVideoDeviceChanged(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnRemoteVideoStat(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnLocalVideoStat(WPARAM wParam, LPARAM lParam);
 
 	afx_msg LRESULT OnStartRecordingService(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnStopRecordingService(WPARAM wParam, LPARAM lParam);

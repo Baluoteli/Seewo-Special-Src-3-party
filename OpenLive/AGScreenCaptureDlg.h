@@ -3,6 +3,15 @@
 
 #define WM_WINDOWSHARE			WM_USER+303
 // CAGScreenCaptureWnd
+typedef struct _WINDOW_SHARE_PARAM
+{
+	HWND	hMarkWnd;
+	int		nFPS;
+	int		nBitrate;
+
+	RECT	rcCapture;
+
+} WINDOW_SHARE_PARAM, *PWINDOW_SHARE_PARAM, *LPWINDOW_SHARE_PARAM;
 
 class CAGScreenCaptureDlg : public CDialogEx
 {

@@ -138,7 +138,6 @@ BOOL COpenLiveDlg::OnInitDialog()
 
 	m_lpAgoraObject = CAgoraObject::GetAgoraObject(strAppID);
 	m_lpRtcEngine = CAgoraObject::GetEngine();
-   
 
 	if (strAppID.GetString() == 0) {
         MessageBox(_T("Please apply your own App ID to macro APP_ID"), _T("Notice"), MB_ICONINFORMATION);
@@ -149,7 +148,9 @@ BOOL COpenLiveDlg::OnInitDialog()
 	m_lpAgoraObject->SetMsgHandlerWnd(GetSafeHwnd());
 	CAgoraObject::GetEngine()->setChannelProfile(CHANNEL_PROFILE_LIVE_BROADCASTING);
 	CAgoraObject::GetAgoraObject()->EnableVideo(TRUE);
+	CAgoraObject::GetAgoraObject()->EnableAudio(TRUE);
 	CAgoraObject::GetAgoraObject()->SetClientRole(CLIENT_ROLE_BROADCASTER);
+	CAgoraObject::GetAgoraObject()->EnableAudioAgc(FALSE);
 
 	SetBackgroundImage(IDB_DLG_MAIN);
 	InitCtrls();

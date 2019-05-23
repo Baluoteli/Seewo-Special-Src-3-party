@@ -426,6 +426,22 @@ BOOL CAgoraObject::IsAllRemoteVideoMuted()
 	return m_bAllRemoteVideoMuted;
 }
 
+BOOL CAgoraObject::EnableAudioAgc(BOOL bEnable)
+{
+	int nRet = 0;
+
+	AParameter apm(*m_lpAgoraEngine);
+
+	if (bEnable)
+		nRet = apm->setParameters("{\"che.audio.enable.agc\":true}");
+	else
+		nRet = apm->setParameters("{\"che.audio.enable.agc\":false}");
+
+	m_bLoopBack = bEnable;
+
+	return nRet == 0 ? TRUE : FALSE;
+}
+
 BOOL CAgoraObject::EnableLoopBack(BOOL bEnable)
 {
 	int nRet = 0;

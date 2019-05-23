@@ -50,7 +50,7 @@ UINT CAgoraAudInputManager::GetVolume()
 {
 	int nVol = 0;
 
-	if (*m_ptrDeviceManager != NULL)
+	if (m_ptrDeviceManager && *m_ptrDeviceManager != NULL)
 		(*m_ptrDeviceManager)->getRecordingDeviceVolume(&nVol);
 
 	return (UINT)nVol;
@@ -110,7 +110,7 @@ CString CAgoraAudInputManager::GetCurDeviceID()
 	CString		str;
 	CHAR		szDeviceID[MAX_DEVICE_ID_LENGTH];
 	
-	if (*m_ptrDeviceManager != NULL)
+	if (m_ptrDeviceManager && *m_ptrDeviceManager != NULL)
 		(*m_ptrDeviceManager)->getRecordingDevice(szDeviceID);
 
 #ifdef UNICODE

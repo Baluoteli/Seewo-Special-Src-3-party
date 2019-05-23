@@ -91,6 +91,7 @@ public:
 	BOOL MuteAllRemoteVideo(BOOL bMuted = TRUE);
 	BOOL IsAllRemoteVideoMuted();
 
+	BOOL EnableAudioAgc(BOOL bEnable);
 	BOOL EnableLoopBack(BOOL bEnable = TRUE);
 	BOOL IsLoopBackEnabled();
 

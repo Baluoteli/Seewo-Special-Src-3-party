@@ -1,4 +1,4 @@
-// AGVideoWnd.cpp : implement file
+// AGVideoWnd.cpp : 
 //
 
 #include "stdafx.h"
@@ -9,17 +9,30 @@ IMPLEMENT_DYNAMIC(CAGInfoWnd, CWnd)
 
 CAGInfoWnd::CAGInfoWnd()
 : m_bShowTip(TRUE)
+, m_bSpeakingTip(FALSE)
 , m_nWidth(0)
 , m_nHeight(0)
+, m_nWinWidth(0)
+, m_nWinHeight(0)
 , m_nFps(0)
 , m_nBitrate(0)
+, m_nVolume(0)
+, m_nUID(0)
 {
 	m_brBack.CreateSolidBrush(RGB(0x00, 0xA0, 0xE9));
+	m_penRed.CreatePen(PS_SOLID, 8, RGB(255, 0, 0));
+	m_penNormal.CreatePen(PS_SOLID, 8, RGB(0x00, 0xA0, 0xE9));
+
+	m_fontTip.CreateFont(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, _T("Arial"));
 }
 
 CAGInfoWnd::~CAGInfoWnd()
 {
 	m_brBack.DeleteObject();
+	m_penRed.DeleteObject();
+	m_penNormal.DeleteObject();
+
+	m_fontTip.DeleteObject();
 }
 
 
@@ -28,6 +41,13 @@ BEGIN_MESSAGE_MAP(CAGInfoWnd, CWnd)
 	ON_WM_ERASEBKGND()
 END_MESSAGE_MAP()
 
+void CAGInfoWnd::ShowSpeakingTip(BOOL bShow, int nVolume)
+{
+	m_bSpeakingTip = bShow;
+	m_nVolume = nVolume;
+
+	Invalidate(FALSE);
+}
 
 void CAGInfoWnd::ShowTips(BOOL bShow)
 {
@@ -35,10 +55,21 @@ void CAGInfoWnd::ShowTips(BOOL bShow)
 
 	if (bShow)
 		ShowWindow(SW_SHOW);
-	else 
+	else
 		ShowWindow(SW_HIDE);
 
 	Invalidate(FALSE);
+}
+
+void CAGInfoWnd::SetWindowInfo(int nWinWidth, int nWinHeight)
+{
+	m_nWinWidth = nWinWidth;
+	m_nWinHeight = nWinHeight;
+
+	if (m_bShowTip) {
+		Invalidate(TRUE);
+		UpdateWindow();
+	}
 }
 
 void CAGInfoWnd::SetVideoResolution(int nWidth, int nHeight)
@@ -52,6 +83,15 @@ void CAGInfoWnd::SetVideoResolution(int nWidth, int nHeight)
 	}
 }
 
+void CAGInfoWnd::SetUID(UINT nUID)
+{
+	m_nUID = nUID;
+
+	if (m_bShowTip) {
+		Invalidate(TRUE);
+		UpdateWindow();
+	}
+}
 void CAGInfoWnd::SetFrameRateInfo(int nFPS)
 {
 	m_nFps = nFPS;
@@ -77,27 +117,44 @@ void CAGInfoWnd::OnPaint()
 	CPaintDC dc(this);
 	CRect	rcClient;
 	CString strTip;
+	int		nHeight = 0;
 
 	dc.SetBkMode(TRANSPARENT);
 	dc.SetTextColor(RGB(0xFF, 0xFF, 0xFF));
-	
+
+	CFont *lpDefFont = dc.SelectObject(&m_fontTip);
+	ShowWindow(SW_SHOW);
+
 	if (m_bShowTip) {
-		// 640x480,15fps,400k
+		// 640x480/1024*768,15fps,400k
 		GetClientRect(&rcClient);
 		rcClient.top += 4;
-		strTip.Format(_T("%dx%d, %dfps, %dK"), m_nWidth, m_nHeight, m_nFps, m_nBitrate);
+		strTip.Format(_T("[%dx%d] [%lu] [%dfps] [%dK]"), m_nWidth, m_nHeight, /*m_nWinWidth, m_nWinHeight,*/ m_nUID, m_nFps, m_nBitrate);
 		dc.DrawText(strTip, &rcClient, DT_VCENTER | DT_CENTER);
+
+		dc.MoveTo(0, rcClient.bottom);
+		if (m_bSpeakingTip) {
+			nHeight = m_nVolume*rcClient.Height() / 255;
+			dc.SelectObject(m_penRed);
+			dc.LineTo(0, rcClient.bottom - nHeight);
+		}
+		else {
+			dc.SelectObject(m_penNormal);
+			dc.LineTo(0, rcClient.top);
+		}
 	}
 }
 
 BOOL CAGInfoWnd::OnEraseBkgnd(CDC* pDC)
 {
-	// TODO:   add message handle code and /or call defalut values here
+	// TODO:  
 	CRect rcClient;
 
-	GetClientRect(&rcClient);
-	pDC->FillRect(&rcClient, &m_brBack);
-	
+	if (pDC != NULL) {
+		GetClientRect(&rcClient);
+		pDC->FillRect(&rcClient, &m_brBack);
+	}
+
 	return TRUE;
 }
 
@@ -110,13 +167,16 @@ CAGVideoWnd::CAGVideoWnd()
 , m_crBackColor(RGB(0x58, 0x58, 0x58))
 , m_bShowVideoInfo(FALSE)
 , m_bBigShow(FALSE)
+, m_bBackground(FALSE)
+, m_bWorkStatus(FALSE)
 {
-
 }
 
 CAGVideoWnd::~CAGVideoWnd()
 {
 	m_imgBackGround.DeleteImageList();
+
+	::CloseHandle(m_hRenderGDIEvent);
 }
 
 
@@ -128,14 +188,16 @@ BEGIN_MESSAGE_MAP(CAGVideoWnd, CWnd)
 	ON_WM_PAINT()
 	ON_WM_SIZE()
 	ON_WM_LBUTTONDBLCLK()
+	ON_WM_PAINT()
+	ON_WM_CLOSE()
 END_MESSAGE_MAP()
 
 
 
-// CAGVideoWnd message handle
+// CAGVideoWnd 
 BOOL CAGVideoWnd::OnEraseBkgnd(CDC* pDC)
 {
-	// TODO:   add message handle code and /or call defalut values here
+	// TODO:  
 	CRect		rcClient;
 	CPoint		ptDraw;
 	IMAGEINFO	imgInfo;
@@ -161,9 +223,14 @@ void CAGVideoWnd::SetUID(UINT nUID)
 	m_nUID = nUID;
 
 	if (m_nUID == 0)
-		m_wndInfo.ShowWindow(SW_HIDE);
-	else
 		m_wndInfo.ShowWindow(SW_SHOW);
+	else {
+
+		SetWindowPos(&m_wndInfo, 200, 200, 200, 30, true);
+		m_wndInfo.ShowWindow(SW_SHOW);
+	}
+
+	m_wndInfo.SetUID(nUID);
 }
 
 UINT CAGVideoWnd::GetUID()
@@ -194,6 +261,13 @@ BOOL CAGVideoWnd::SetBackImage(UINT nID, UINT nWidth, UINT nHeight, COLORREF crM
 	return TRUE;
 }
 
+void CAGVideoWnd::ShowBackground(BOOL bBackground)
+{
+	m_bBackground = bBackground;
+
+	Invalidate(TRUE);
+}
+
 void CAGVideoWnd::SetFaceColor(COLORREF crBackColor)
 {
 	m_crBackColor = crBackColor;
@@ -206,7 +280,11 @@ void CAGVideoWnd::SetVideoResolution(UINT nWidth, UINT nHeight)
 	m_nWidth = nWidth;
 	m_nHeight = nHeight;
 
+	CRect rcWinRect;
+
+	GetWindowRect(&rcWinRect);
 	m_wndInfo.SetVideoResolution(nWidth, nHeight);
+	m_wndInfo.SetWindowInfo(rcWinRect.Width(), rcWinRect.Height());
 }
 
 void CAGVideoWnd::GetVideoResolution(UINT *nWidth, UINT *nHeight)
@@ -229,30 +307,28 @@ void CAGVideoWnd::SetFrameRateInfo(int nReceiveFrameRate)
 
 void CAGVideoWnd::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	// TODO:  add message handle code and /or call defalut values here
+	// TODO:  
 
 	::SendMessage(GetParent()->GetSafeHwnd(), WM_SHOWBIG, (WPARAM)this, (LPARAM)m_nUID);
 
 	CWnd::OnLButtonDown(nFlags, point);
 }
 
-
 void CAGVideoWnd::OnRButtonDown(UINT nFlags, CPoint point)
 {
-	// TODO:  add message handle code and /or call defalut values here
+	// TODO:  
 	::SendMessage(GetParent()->GetSafeHwnd(), WM_SHOWMODECHANGED, (WPARAM)this, (LPARAM)m_nUID);
 
 	CWnd::OnRButtonDown(nFlags, point);
 }
-
 
 int CAGVideoWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
 	if (CWnd::OnCreate(lpCreateStruct) == -1)
 		return -1;
 
-	// TODO:  add you own creation code here
-	m_wndInfo.Create(NULL, NULL, WS_CHILD | WS_VISIBLE, CRect(0, 0, 192, 28), this, IDC_STATIC);
+	// TODO:  在此添加您专用的创建代码
+	m_wndInfo.Create(NULL, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, CRect(0, 0, 192, 28), this, IDC_STATIC);
 
 	return 0;
 }
@@ -263,15 +339,8 @@ void CAGVideoWnd::ShowVideoInfo(BOOL bShow)
 	m_bShowVideoInfo = bShow;
 
 	m_wndInfo.ShowTips(bShow);
+
 	Invalidate(TRUE);
-
-/*	if (!bShow) {
-		CRect rcTip;
-		m_wndInfo.GetWindowRect(&rcTip);
-		
-	}
-	*/
-
 }
 
 void CAGVideoWnd::SetBigShowFlag(BOOL bBigShow)
@@ -281,14 +350,14 @@ void CAGVideoWnd::SetBigShowFlag(BOOL bBigShow)
 	m_bBigShow = bBigShow;
 	GetClientRect(&rcClient);
 
-	int x = (rcClient.Width()- 192) / 2;
+	int x = (rcClient.Width() - 200) / 2;
 	int y = rcClient.Height() - 24;
-	
+
 	if (m_wndInfo.GetSafeHwnd() != NULL) {
 		if (m_bBigShow)
 			y -= 4;
 
-		m_wndInfo.MoveWindow(x, y, 192, 24);
+		m_wndInfo.MoveWindow(x, y, 200, 24);
 	}
 };
 
@@ -297,22 +366,64 @@ void CAGVideoWnd::OnSize(UINT nType, int cx, int cy)
 {
 	CWnd::OnSize(nType, cx, cy);
 
-	int x = (cx - 192) / 2;
+	int x = (cx - 200) / 2;
 	int y = cy - 24;
-	// TODO:  add message handle code here
+	// TODO:  
 	if (m_wndInfo.GetSafeHwnd() != NULL) {
 		if (m_bBigShow)
 			y -= 4;
 
-		m_wndInfo.MoveWindow(x, y, 192, 24);
+		m_wndInfo.MoveWindow(x, y, 200, 24);
 	}
 }
 
+void CAGVideoWnd::OnClose()
+{
+	if (m_bWorkStatus) {
+		m_bWorkStatus = FALSE;
+		WaitForSingleObject(m_hRenderGDIEvent, INFINITE);
+	}
+}
 
 void CAGVideoWnd::OnLButtonDblClk(UINT nFlags, CPoint point)
 {
-	// TODO:  add message handle code and /or call defalut values here
+	// TODO:  
 	::SendMessage(GetParent()->GetSafeHwnd(), WM_SHOWMODECHANGED, (WPARAM)this, (LPARAM)m_nUID);
 
 	CWnd::OnLButtonDblClk(nFlags, point);
+}
+
+
+void CAGVideoWnd::OnPaint()
+{
+	CPaintDC dc(this); // device context for painting
+	// TODO:  
+	//  CWnd::OnPaint()
+
+	if (m_bBackground) {
+		CRect		rcClient;
+		CPoint		ptDraw;
+		IMAGEINFO	imgInfo;
+
+		GetClientRect(&rcClient);
+
+		dc.FillSolidRect(&rcClient, m_crBackColor);
+		if (!m_imgBackGround.GetImageInfo(0, &imgInfo))
+			return;
+
+		ptDraw.SetPoint((rcClient.Width() - imgInfo.rcImage.right) / 2, (rcClient.Height() - imgInfo.rcImage.bottom) / 2);
+		if (ptDraw.x < 0)
+			ptDraw.x = 0;
+		if (ptDraw.y <= 0)
+			ptDraw.y = 0;
+
+		m_imgBackGround.Draw(&dc, 0, ptDraw, ILD_NORMAL);
+	}
+	else
+		return CWnd::OnPaint();
+}
+
+void CAGVideoWnd::ShowSpeakingTip(BOOL bShow, int nVolume)
+{
+	m_wndInfo.ShowSpeakingTip(bShow, nVolume);
 }

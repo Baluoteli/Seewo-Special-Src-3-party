@@ -47,6 +47,7 @@ BEGIN_MESSAGE_MAP(CVideoDlg, CDialogEx)
 
 	ON_MESSAGE(WM_SHOWMODECHANGED, &CVideoDlg::OnShowModeChanged)
 	ON_MESSAGE(WM_SHOWBIG, &CVideoDlg::OnShowBig)
+	ON_MESSAGE(WM_WINDOWSHARE, &CVideoDlg::OnWindowShareStart)
 
 	ON_MESSAGE(WM_MSGID(EID_JOINCHANNEL_SUCCESS), &CVideoDlg::OnEIDJoinChannelSuccess)
 	ON_MESSAGE(WM_MSGID(EID_REJOINCHANNEL_SUCCESS), &CVideoDlg::OnEIDReJoinChannelSuccess)
@@ -56,6 +57,7 @@ BEGIN_MESSAGE_MAP(CVideoDlg, CDialogEx)
 	ON_MESSAGE(WM_MSGID(EID_USER_JOINED),&CVideoDlg::OnEIDUserJoined)
 	ON_MESSAGE(WM_MSGID(EID_USER_OFFLINE), &CVideoDlg::OnEIDUserOffline)
 	
+	ON_MESSAGE(WM_MSGID(EID_LOCAL_VIDEO_STAT), &CVideoDlg::OnLocalVideoStat)
 	ON_MESSAGE(WM_MSGID(EID_REMOTE_VIDEO_STAT), &CVideoDlg::OnRemoteVideoStat)
 
 	ON_MESSAGE(WM_MSGID(EID_START_RCDSRV), &CVideoDlg::OnStartRecordingService)
@@ -106,7 +108,7 @@ void CVideoDlg::OnSize(UINT nType, int cx, int cy)
 	m_rcVideoArea.top += 24;
 	m_rcVideoArea.bottom -= 72;
 
-	// 2ÈË£¬ Top right corner sub-screen area
+	// 2ï¿½Ë£ï¿½ Top right corner sub-screen area
 	m_rcChildVideoArea.top = m_rcVideoArea.top + 10;
 	m_rcChildVideoArea.bottom = m_rcChildVideoArea.top + 144;
 	m_rcChildVideoArea.right = m_rcVideoArea.right - 14;
@@ -472,8 +474,6 @@ void CVideoDlg::OnCbnSelchangeCmbRole()
 {
 	int nSel = m_cbxRole.GetCurSel();
 
-	return;
-
 	if (nSel == 0)
 		CAgoraObject::GetAgoraObject()->SetClientRole(CLIENT_ROLE_TYPE::CLIENT_ROLE_BROADCASTER);
 	else
@@ -771,7 +771,8 @@ LRESULT CVideoDlg::OnEIDFirstLocalFrame(WPARAM wParam, LPARAM lParam)
 	seiInfo.nUID = lpAgoraObject->GetSelfUID();
 	seiInfo.nWidth = lpData->width;
 	seiInfo.nHeight = lpData->height;
-	lpAgoraObject->SetSEIInfo(seiInfo.nUID, &seiInfo);
+	m_wndLocal.SetUID(0);
+	m_wndLocal.SetVideoResolution(lpData->width, lpData->height);
 
 	delete lpData;
 
@@ -882,10 +883,12 @@ LRESULT CVideoDlg::OnRemoteVideoStat(WPARAM wParam, LPARAM lParam)
 				m_wndLocal.SetBitrateInfo(rWndInfo.nBitrate);
 				m_wndLocal.SetVideoResolution(rWndInfo.nWidth, rWndInfo.nHeight);
 			} else if (rWndInfo.nIndex == 1) {
+				m_wndBigVideo.SetUID(rWndInfo.nUID);
 				m_wndBigVideo.SetFrameRateInfo(rWndInfo.nFramerate);
 				m_wndBigVideo.SetBitrateInfo(rWndInfo.nBitrate);
 				m_wndBigVideo.SetVideoResolution(rWndInfo.nWidth, rWndInfo.nHeight);
 			} else {
+				m_wndSecond.SetUID(rWndInfo.nUID);
 				m_wndSecond.SetFrameRateInfo(rWndInfo.nFramerate);
 				m_wndSecond.SetBitrateInfo(rWndInfo.nBitrate);
 				m_wndSecond.SetVideoResolution(rWndInfo.nWidth, rWndInfo.nHeight);
@@ -895,6 +898,21 @@ LRESULT CVideoDlg::OnRemoteVideoStat(WPARAM wParam, LPARAM lParam)
 	}
 
 	delete lpData;
+
+	return 0;
+}
+
+LRESULT CVideoDlg::OnLocalVideoStat(WPARAM wParam, LPARAM lParam)
+{
+	LPAGE_LOCAL_VIDEO_STAT lpData = (LPAGE_LOCAL_VIDEO_STAT)wParam;
+	if (lpData) {
+
+		m_wndLocal.SetFrameRateInfo(lpData->sentFrameRate);
+		m_wndLocal.SetBitrateInfo(lpData->sentBitrate);
+
+		delete lpData;
+		lpData = NULL;
+	}
 
 	return 0;
 }
@@ -961,20 +979,23 @@ void CVideoDlg::InitCtrls()
 	m_btnTip.Create(NULL, WS_VISIBLE | WS_CHILD, CRect(0, 0, 1, 1), this, IDC_BTNTIP_VIDEO);
 
 	// big
-	m_wndBigVideo.Create(NULL, NULL, WS_CHILD | WS_VISIBLE | WS_BORDER, CRect(0, 0, 1, 1), this, IDC_BASEWND_VIDEO + 0);
+	m_wndBigVideo.Create(NULL, NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, CRect(0, 0, 1, 1), this, IDC_BASEWND_VIDEO + 0);
 	m_wndBigVideo.SetBackImage(IDB_BACKGROUND_VIDEO, 96, 96, RGB(0x44, 0x44, 0x44));
 	m_wndBigVideo.SetFaceColor(RGB(0x58, 0x58, 0x58));
+	m_wndBigVideo.ShowVideoInfo(TRUE);
 
 	// second
-	m_wndSecond.Create(NULL, NULL, WS_CHILD | WS_VISIBLE | WS_BORDER, CRect(0, 0, 1, 1), this, IDC_BASEWND_VIDEO + 1);
+	m_wndSecond.Create(NULL, NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, CRect(0, 0, 1, 1), this, IDC_BASEWND_VIDEO + 1);
 	m_wndSecond.SetBackImage(IDB_BACKGROUND_VIDEO, 96, 96, RGB(0x44, 0x44, 0x44));
 	m_wndSecond.SetFaceColor(RGB(0x58, 0x58, 0x58));
+	m_wndSecond.ShowVideoInfo(TRUE);
 
 	// local
-	m_wndLocal.Create(NULL, NULL, WS_CHILD | WS_VISIBLE | WS_BORDER, CRect(0, 0, 1, 1), this, IDC_BASEWND_VIDEO + 2);
+	m_wndLocal.Create(NULL, NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, CRect(0, 0, 1, 1), this, IDC_BASEWND_VIDEO + 2);
 	m_wndLocal.SetBackImage(IDB_BACKGROUND_VIDEO, 96, 96, RGB(0x44, 0x44, 0x44));
 	m_wndLocal.SetFaceColor(RGB(0x58, 0x58, 0x58));
 	m_wndLocal.SetUID(0);
+	m_wndLocal.ShowVideoInfo(TRUE);
 
 	m_btnMin.MoveWindow(rcClient.Width() - 72, 1, 22, 22, TRUE);
 	m_btnRst.MoveWindow(rcClient.Width() - 48, 1, 22, 22, TRUE);
@@ -1319,6 +1340,22 @@ LRESULT CVideoDlg::OnShowBig(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+LRESULT CVideoDlg::OnWindowShareStart(WPARAM wParam, LPARAM lParam)
+{
+	LPWINDOW_SHARE_PARAM lpWndShareParam = reinterpret_cast<LPWINDOW_SHARE_PARAM>(wParam);
+
+	if (lpWndShareParam->hMarkWnd == GetSafeHwnd()) {
+		CAgoraObject::GetAgoraObject()->EnableLocalRender(FALSE);
+		m_wndLocal.Invalidate(TRUE);
+	}
+
+	CAgoraObject::GetAgoraObject()->EnableVideo();
+	CAgoraObject::GetAgoraObject()->EnableScreenCapture(lpWndShareParam->hMarkWnd, lpWndShareParam->nFPS, &lpWndShareParam->rcCapture, TRUE, lpWndShareParam->nBitrate);
+
+	m_btnScrCap.SwitchButtonStatus(CAGButton::AGBTN_PUSH);
+
+	return 0;
+}
 
 void CVideoDlg::OnShowWindow(BOOL bShow, UINT nStatus)
 {

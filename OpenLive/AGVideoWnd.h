@@ -3,6 +3,13 @@
 #define WM_SHOWMODECHANGED	WM_USER+300
 #define WM_SHOWBIG			WM_USER+301
 
+class CAGVideoWnd;
+typedef struct _RENDERVIDEO_THREAD_PARAM
+{
+	HANDLE m_hRenderGDIEvent;
+	CAGVideoWnd* m_pAgWnd;
+} RENDERVIDEO_THREAD_PARAM, *P_RENDERVIDEO_THREAD_PARAM, *LP_RENDERVIDEO_THREAD_PARAM;
+
 class CAGInfoWnd : public CWnd
 {
 	DECLARE_DYNAMIC(CAGInfoWnd)
@@ -11,10 +18,13 @@ public:
 	CAGInfoWnd();
 	virtual ~CAGInfoWnd();
 
+	void ShowSpeakingTip(BOOL bShow, int nVolume);
 	void ShowTips(BOOL bShow = TRUE);
+	void SetWindowInfo(int nWinWidth, int nWinHeight);
 	void SetVideoResolution(int nWidth, int nHeight);
 	void SetFrameRateInfo(int nFPS);
 	void SetBitrateInfo(int nBitrate);
+	void SetUID(UINT nUID);
 
 protected:
 	afx_msg void OnPaint();
@@ -24,15 +34,22 @@ protected:
 
 private:
 	BOOL		m_bShowTip;
-	
-	COLORREF	m_crBackColor;
+	BOOL		m_bSpeakingTip;
 
 	int		m_nWidth;
 	int		m_nHeight;
+	int		m_nWinWidth;
+	int		m_nWinHeight;
+	UINT	m_nUID;
+
 	int		m_nFps;
 	int		m_nBitrate;
+	int		m_nVolume;
 
+	CPen	m_penRed;
+	CPen	m_penNormal;
 	CBrush	m_brBack;
+	CFont	m_fontTip;
 };
 
 
@@ -45,19 +62,22 @@ public:
 	virtual ~CAGVideoWnd();
 
 	void SetUID(UINT dwUID);
-	
+
 	UINT GetUID();
 	BOOL IsWndFree();
 
 	void SetFaceColor(COLORREF crBackColor);
 	BOOL SetBackImage(UINT nID, UINT nWidth, UINT nHeight, COLORREF crMask = RGB(0xFF, 0xff, 0xFF));
 
+	void ShowBackground(BOOL bBackground);
+	BOOL IsBackgroundMode() { return m_bBackground; };
+
 	void SetVideoResolution(UINT nWidth, UINT nHeight);
 	void GetVideoResolution(UINT *nWidth, UINT *nHeight);
-	
+
 	void SetBitrateInfo(int nReceivedBitrate);
 	int	GetBitrateInfo() { return m_nBitRate; };
-	
+
 	void SetFrameRateInfo(int nReceiveFrameRate);
 	int GetFrameRateInfo() { return m_nFrameRate; };
 
@@ -67,6 +87,10 @@ public:
 	void SetBigShowFlag(BOOL bBigShow);
 	BOOL IsBigShow() { return m_bBigShow; };
 
+	void ShowSpeakingTip(BOOL bShow, int nVolume);
+
+	void BeginPushVideoRenderThread();
+
 protected:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
@@ -74,6 +98,9 @@ protected:
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
 	afx_msg void OnRButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg void OnPaint();
+	afx_msg void OnClose();
+
 
 	DECLARE_MESSAGE_MAP()
 
@@ -83,7 +110,7 @@ private:
 
 	CAGInfoWnd		m_wndInfo;
 
-private:
+public:
 	UINT		m_nUID;
 
 	UINT		m_nWidth;
@@ -92,6 +119,14 @@ private:
 	int			m_nBitRate;
 	BOOL		m_bShowVideoInfo;
 	BOOL		m_bBigShow;
+
+	BOOL        m_bBackground;
+
+private:
+	BOOL m_bWorkStatus;
+	HANDLE m_hRenderGDIEvent;
+	RENDERVIDEO_THREAD_PARAM m_renderParam;
+	static UINT RenderThread(LPVOID lpParam);
 };
 
 
